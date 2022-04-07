@@ -19,7 +19,7 @@ class ListeningThread(threading.Thread):
             res = sock.recv(2048).decode("utf-8")
             if res.startswith("DELIVERY "):
                 name, message = extract_name(res[len("DELIVERY "):])
-                print("{}: {}".format(name, message[:-1]))
+                print(f"{name}: {message[:-1]}")
             elif res.startswith("WHO-OK"):
                 print(res[len("WHO-OK "):])
             elif res == "UNKNOWN\n":
@@ -41,13 +41,13 @@ def connect(ip, port):
 
 
 def log_in(username, sock: socket):
-    msg_bytes = "HELLO-FROM {}\n".format(username).encode("utf-8")
+    msg_bytes = f"HELLO-FROM {username}\n".encode("utf-8")
     sock.sendall(msg_bytes)
     return sock.recv(2048).decode("utf-8")
 
 
 def send(user, message, socket):
-    msg_bytes = "SEND {} {}\n".format(user, message).encode("utf-8")
+    msg_bytes = f"SEND {user} {message}\n".encode("utf-8")
     socket.sendall(msg_bytes)
 
 
@@ -92,7 +92,7 @@ How would you like to connect?
         try:
             sock = connect(ip, port)
         except ConnectionRefusedError:
-            print("Can't connect to {}:{}\nShutting down client....".format(ip, port))
+            print(f"Can't connect to {ip}:{port}\nShutting down client....")
             exit()
         username = input("Username:")
         res = log_in(username, sock)
