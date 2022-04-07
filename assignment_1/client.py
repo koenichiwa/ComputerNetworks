@@ -112,6 +112,7 @@ How would you like to connect?
     while True:
         command = input()
         if command == "!quit":
+            sock.close()
             exit()  # Because python has a super nifty garbage collection
         elif command == "!who":
             who(sock)
