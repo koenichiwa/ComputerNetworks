@@ -42,18 +42,18 @@ def connect(ip, port):
 
 def log_in(username, sock: socket):
     msg_bytes = "HELLO-FROM {}\n".format(username).encode("utf-8")
-    sock.sendAll(msg_bytes)
+    sock.sendall(msg_bytes)
     return sock.recv(2048).decode("utf-8")
 
 
 def send(user, message, socket):
     msg_bytes = "SEND {} {}\n".format(user, message).encode("utf-8")
-    socket.sendAll(msg_bytes)
+    socket.sendall(msg_bytes)
 
 
 def who(socket):
     msg_bytes = "WHO\n".encode("utf-8")
-    socket.sendAll(msg_bytes)
+    socket.sendall(msg_bytes)
 
 
 def extract_name(command):
