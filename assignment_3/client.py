@@ -5,11 +5,11 @@ from threading import Thread
 UDP_IP = "143.47.184.219"
 UDP_PORT = 5382
 
-SEND_INTERVAL = 2
+SEND_INTERVAL = 2  # seconds
 
 RS_COMPLETED = 0
 RS_PENDING = 1
-RS_ERROR = 3
+RS_ERROR = 2
 
 request_status = RS_COMPLETED
 
@@ -19,21 +19,11 @@ def main():
     port = UDP_PORT
 
     # Logging in
-    while True:
-        sock = socket(AF_INET, SOCK_DGRAM)
-        sock.settimeout(1)
-        username = input("Username:")
-        response = log_in(username, sock, (ip, port))
-        if response == f"HELLO {username}\n":
-            break
-            print("Logged in")
-        elif response == "IN-USE\n":
-            print("This username is in use")
-        elif response == "BUSY\n":
-            print("The server is busy")
-        else:
-            print("Something went wrong. Idk man.\nkthxbye")
-            exit()
+    sock = socket(AF_INET, SOCK_DGRAM)
+    # TODO: set time out here?
+    # sock.settimeout(1)
+    log_in(sock, (ip, port))
+
 
     # Spinning up server listening thread
     l_thread = ListeningThread(sock)
@@ -62,8 +52,7 @@ class ListeningThread(Thread):
     def run(self) -> None:
         global request_status
         while True:
-            data, address = self.socket.recvfrom(2048)
-            data = data.decode("utf-8")
+            data = receive_data(self.socket, 2048)
             if data.startswith("DELIVERY "):
                 name, message = extract_name(data[len("DELIVERY "):])
                 print(f"{name}: {message[:-1]}")
@@ -83,18 +72,32 @@ class ListeningThread(Thread):
             elif data.startswith("WHO-OK "):
                 request_status = RS_COMPLETED
                 print(data[len("WHO-OK "):])
+            else:
+                print(f"Unknown server response: {data}")
 
 
-def log_in(username: str, sock: socket, address: tuple[str, int]) -> str:
-    data = None
-    while not data:
+def log_in(sock: socket, address: tuple[str, int]):
+    while True:
+        username = input("Username: ")
         msg_bytes = f"HELLO-FROM {username}\n".encode("utf-8")
         sock.sendto(msg_bytes, address)
-        try:
-            data, server_addr = sock.recvfrom(2048)
-        except timeout as e:
-            print(e)
-    return data.decode("utf-8")
+        data = receive_data(sock, 2048)
+        if data == f"HELLO {username}\n":
+            print("Logged in.")
+            break
+        elif data == "IN-USE\n":
+            print("This username is in use. Try again.")
+        elif data == "BUSY\n":
+            print("The server is busy.")
+            print("Exiting client.")
+            exit()
+        else:
+            print("Something went wrong. Reason unknown.")
+            print("Exiting client.")
+            exit()
+
+
+
 
 
 def send(user: str, message: str, sock: socket, address: tuple[str, int]):
@@ -128,6 +131,14 @@ def extract_name(command: str):
         without_at = command
     split_index = without_at.find(' ')
     return without_at[0:split_index], without_at[split_index + 1:]
+
+
+def receive_data(sock: socket, bufsize: int):
+    # TODO: maybe timeout?
+    data, address = sock.recvfrom(bufsize)
+    # TODO: check for bitflips
+    data = data.decode("utf-8")
+    return data
 
 
 if __name__ == '__main__':

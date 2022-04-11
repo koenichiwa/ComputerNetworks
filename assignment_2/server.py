@@ -84,7 +84,7 @@ class ClientThread(Thread):
                     break
             else:
                 self.handle_message(data)
-                
+
         if self.username is not None:
             with client_dict_lock:
                 del clients[self.username]
