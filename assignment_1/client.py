@@ -8,6 +8,64 @@ LOCAL_IP = "localhost"
 LOCAL_PORT = 4242
 
 
+def main():
+    # Choose <ip>:<port>. Making it easier for assignment 2
+    connection_type = input("""
+    How would you like to connect?
+    1: Default server
+    2: Local Server
+    <ip>:<portnumber>
+    """)
+    if connection_type == "1":
+        ip, port = DEFAULT_IP, DEFAULT_PORT
+    elif connection_type == "2":
+        ip, port = LOCAL_IP, LOCAL_PORT
+    else:
+        try:
+            connection_values = connection_type.split(":")
+            ip = connection_values[0]
+            port = int(connection_values[1])
+        except (ValueError, IndexError):
+            print("Wrong syntax\nShutting down client....")
+            exit()
+
+    # Connecting and logging in
+    while True:
+        try:
+            sock = connect(ip, port)
+        except ConnectionRefusedError:
+            print(f"Can't connect to {ip}:{port}\nShutting down client....")
+            exit()
+        username = input("Username:")
+        res = log_in(username, sock)
+        if res == f"HELLO {username}\n":
+            print("Logged in")
+            break
+        elif res == "IN-USE\n":
+            print("This username is in use")
+        elif res == "BUSY\n":
+            print("The server is busy")
+        else:
+            print("Something went wrong. Unknown error.\nShutting down client....")
+            exit()
+
+    # Spinning up server listening thread
+    l_thread = ListeningThread(sock, True)
+    l_thread.start()
+
+    # Wait for user input
+    while True:
+        command = input()
+        if command == "!quit":
+            sock.close()
+            exit()  # Because python has a super nifty garbage collection
+        elif command == "!who":
+            who(sock)
+        elif command.startswith("@"):
+            name, message = extract_name(command[1:])
+            send(name, message, sock)
+
+
 class ListeningThread(threading.Thread):
     def __init__(self, t_socket, t_listening):
         super().__init__()
@@ -16,7 +74,7 @@ class ListeningThread(threading.Thread):
 
     def run(self) -> None:
         while self.listening:
-            res = sock.recv(2048).decode("utf-8")
+            res = self.socket.recv(2048).decode("utf-8")
             if res.startswith("DELIVERY "):
                 name, message = extract_name(res[len("DELIVERY "):])
                 print(f"{name}: {message[:-1]}")
@@ -36,24 +94,20 @@ def connect(ip, port):
     return sock
 
 
-# def disconnect(sock):
-#     sock.close()
-
-
 def log_in(username, sock: socket):
     msg_bytes = f"HELLO-FROM {username}\n".encode("utf-8")
     sock.sendall(msg_bytes)
     return sock.recv(2048).decode("utf-8")
 
 
-def send(user, message, socket):
+def send(user, message, sock):
     msg_bytes = f"SEND {user} {message}\n".encode("utf-8")
-    socket.sendall(msg_bytes)
+    sock.sendall(msg_bytes)
 
 
-def who(socket):
+def who(sock):
     msg_bytes = "WHO\n".encode("utf-8")
-    socket.sendall(msg_bytes)
+    sock.sendall(msg_bytes)
 
 
 def extract_name(command):
@@ -66,56 +120,4 @@ def extract_name(command):
 
 
 if __name__ == '__main__':
-    # Choose <ip>:<port>. Making it easier for assignment 2
-    connection_type = input("""
-How would you like to connect?
-1: Default server
-2: Local Server
-<ip>:<portnumber>
-""")
-    if connection_type == "1":
-        ip, port = DEFAULT_IP, DEFAULT_PORT
-    elif connection_type == "2":
-        ip, port = LOCAL_IP, LOCAL_PORT
-    else:
-        try:
-            connection_values = connection_type.split(":")
-            ip = connection_values[0]
-            port = int(connection_values[1])
-        except (ValueError, IndexError):
-            print("Wrong syntax\nShutting down client....")
-            exit()
-
-    # Connecting and logging in
-    logged_in = False
-    while not logged_in:
-        try:
-            sock = connect(ip, port)
-        except ConnectionRefusedError:
-            print(f"Can't connect to {ip}:{port}\nShutting down client....")
-            exit()
-        username = input("Username:")
-        res = log_in(username, sock)
-        if res.startswith("HELLO"):
-            logged_in = True
-            print("Logged in")
-        elif res == "IN-USE\n":
-            print("This username is in use")
-        elif res == "BUSY\n":
-            print("The server is busy")
-
-    # Spinning up server listening thread
-    l_thread = ListeningThread(sock, True)
-    l_thread.start()
-
-    # Wait for user input
-    while True:
-        command = input()
-        if command == "!quit":
-            sock.close()
-            exit()  # Because python has a super nifty garbage collection
-        elif command == "!who":
-            who(sock)
-        elif command.startswith("@"):
-            name, message = extract_name(command[1:])
-            send(name, message, sock)
+    main()
