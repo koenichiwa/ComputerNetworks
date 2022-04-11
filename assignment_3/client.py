@@ -1,16 +1,27 @@
-from socket import socket, AF_INET, SOCK_DGRAM
-from threading import Thread, Lock
+import time
+from socket import socket, AF_INET, SOCK_DGRAM, timeout
+from threading import Thread
 
 UDP_IP = "143.47.184.219"
 UDP_PORT = 5382
+
+SEND_INTERVAL = 2
+
+RS_COMPLETED = 0
+RS_PENDING = 1
+RS_ERROR = 3
+
+request_status = RS_COMPLETED
+
 
 def main():
     ip = UDP_IP
     port = UDP_PORT
 
     # Logging in
-    while not True:
+    while True:
         sock = socket(AF_INET, SOCK_DGRAM)
+        sock.settimeout(1)
         username = input("Username:")
         response = log_in(username, sock, (ip, port))
         if response == f"HELLO {username}\n":
@@ -44,15 +55,12 @@ def main():
 class ListeningThread(Thread):
     def __init__(self,
                  sock: socket,
-                 # t_address: (),
-                 # t_listening
                  ):
         super().__init__()
         self.socket = sock
-        # self.listening = t_listening
-        # self.address = t_address
 
     def run(self) -> None:
+        global request_status
         while True:
             data, address = self.socket.recvfrom(2048)
             data = data.decode("utf-8")
@@ -60,40 +68,57 @@ class ListeningThread(Thread):
                 name, message = extract_name(data[len("DELIVERY "):])
                 print(f"{name}: {message[:-1]}")
             elif data == "BAD-RQST-HDR\n":
+                request_status = RS_ERROR
                 print("Bad request header")
             elif data == "BAD-RQST-BODY\n":
+                request_status = RS_ERROR
                 print("Bad request body")
+            elif data == "SEND-OK\n":
+                request_status = RS_COMPLETED
+                break
+            elif data == "UNKNOWN\n":
+                request_status = RS_COMPLETED
+                print(f"User not logged in")
+                break
+            elif data.startswith("WHO-OK "):
+                request_status = RS_COMPLETED
+                print(data[len("WHO-OK "):])
 
 
 def log_in(username: str, sock: socket, address: tuple[str, int]) -> str:
-    msg_bytes = f"HELLO-FROM {username}\n".encode("utf-8")
-    sock.sendto(msg_bytes, address)
-    data, server_addr = sock.recvfrom(2048)
+    data = None
+    while not data:
+        msg_bytes = f"HELLO-FROM {username}\n".encode("utf-8")
+        sock.sendto(msg_bytes, address)
+        try:
+            data, server_addr = sock.recvfrom(2048)
+        except timeout as e:
+            print(e)
     return data.decode("utf-8")
 
 
 def send(user: str, message: str, sock: socket, address: tuple[str, int]):
-    with Lock():
-        while True:
+    global request_status
+    request_status = RS_PENDING
+    start = time.time()
+    now = 0
+    while request_status != RS_COMPLETED:
+        if request_status == RS_ERROR or start + SEND_INTERVAL > now:
             msg_bytes = f"SEND {user} {message}\n".encode("utf-8")
             sock.sendto(msg_bytes, address)
-            data, server_addr = sock.recvfrom(2048)
-            data = data.decode("utf-8")
-            if data == "SEND-OK\n":
-                break
-            if data == "UNKNOWN\n":
-                print(f"User: {user} not logged in")
-                break
+            now = time.time()
 
 
 def who(sock: socket, address: tuple[str, int]):
-    with Lock():
-        msg_bytes = "WHO\n".encode("utf-8")
-        sock.sendto(msg_bytes, address)
-        data, server_addr = sock.recvfrom(2048)
-        data = data.decode("utf-8")
-        if data.startswith("WHO-OK"):
-            print(data[len("WHO-OK "):])
+    global request_status
+    request_status = RS_PENDING
+    start = time.time()
+    now = 0
+    while request_status != RS_COMPLETED:
+        if request_status == RS_ERROR or start + SEND_INTERVAL > now:
+            msg_bytes = "WHO\n".encode("utf-8")
+            sock.sendto(msg_bytes, address)
+            now = time.time()
 
 
 def extract_name(command: str):
