@@ -24,7 +24,6 @@ def main():
     # sock.settimeout(1)
     log_in(sock, (ip, port))
 
-
     # Spinning up server listening thread
     l_thread = ListeningThread(sock)
     l_thread.start()
@@ -97,9 +96,6 @@ def log_in(sock: socket, address: tuple[str, int]):
             exit()
 
 
-
-
-
 def send(user: str, message: str, sock: socket, address: tuple[str, int]):
     global request_status
     request_status = RS_PENDING
@@ -124,13 +120,9 @@ def who(sock: socket, address: tuple[str, int]):
             now = time.time()
 
 
-def extract_name(command: str):
-    if command.startswith("@"):
-        without_at = command[1:]
-    else:
-        without_at = command
-    split_index = without_at.find(' ')
-    return without_at[0:split_index], without_at[split_index + 1:]
+def extract_name(command: str) -> tuple[str,str]:
+    split_index = command.find(' ')
+    return command[0:split_index], command[split_index + 1:]
 
 
 def receive_data(sock: socket, bufsize: int):
