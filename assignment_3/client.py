@@ -14,7 +14,7 @@ RS_ERROR = 2
 request_status = RS_COMPLETED
 
 
-def main():
+def main() -> None:
     ip = UDP_IP
     port = UDP_PORT
 
@@ -53,6 +53,7 @@ class ListeningThread(Thread):
         while True:
             data = receive_data(self.socket, 2048)
             if data.startswith("DELIVERY "):
+                # TODO: check for bitflips in the message?
                 name, message = extract_name(data[len("DELIVERY "):])
                 print(f"{name}: {message[:-1]}")
             elif data == "BAD-RQST-HDR\n":
@@ -75,7 +76,7 @@ class ListeningThread(Thread):
                 print(f"Unknown server response: {data}")
 
 
-def log_in(sock: socket, address: tuple[str, int]):
+def log_in(sock: socket, address: tuple[str, int]) -> None:
     while True:
         username = input("Username: ")
         msg_bytes = f"HELLO-FROM {username}\n".encode("utf-8")
@@ -96,7 +97,7 @@ def log_in(sock: socket, address: tuple[str, int]):
             exit()
 
 
-def send(user: str, message: str, sock: socket, address: tuple[str, int]):
+def send(user: str, message: str, sock: socket, address: tuple[str, int]) -> None:
     global request_status
     request_status = RS_PENDING
     start = time.time()
@@ -108,7 +109,7 @@ def send(user: str, message: str, sock: socket, address: tuple[str, int]):
             now = time.time()
 
 
-def who(sock: socket, address: tuple[str, int]):
+def who(sock: socket, address: tuple[str, int]) -> None:
     global request_status
     request_status = RS_PENDING
     start = time.time()
@@ -120,15 +121,15 @@ def who(sock: socket, address: tuple[str, int]):
             now = time.time()
 
 
-def extract_name(command: str) -> tuple[str,str]:
+def extract_name(command: str) -> tuple[str, str]:
     split_index = command.find(' ')
     return command[0:split_index], command[split_index + 1:]
 
 
-def receive_data(sock: socket, bufsize: int):
+def receive_data(sock: socket, bufsize: int) -> str:
     # TODO: maybe timeout?
     data, address = sock.recvfrom(bufsize)
-    # TODO: check for bitflips
+    # TODO: check for bitflips in the bytestream?
     data = data.decode("utf-8")
     return data
 
